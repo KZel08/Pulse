@@ -29,7 +29,7 @@ export class ChatGateway
     private readonly chatService: ChatService,
   ) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     try {
       const token =
         client.handshake.auth?.token ||
@@ -51,6 +51,9 @@ export class ChatGateway
       };
 
       console.log('Client connected:', client.data.user);
+      // Join a room for this user so messages can be targeted to them
+      client.join(`user:${client.data.user.id}`);
+      
     } catch (err) {
       client.disconnect();
     }
@@ -62,28 +65,32 @@ export class ChatGateway
 
   @SubscribeMessage('send_message')
   async handleMessage(
-    @MessageBody() message: string,
+    @MessageBody()
+    payload: { toUserId: string; content: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const user = client.data.user;
+    const sender = client.data.user;
 
-    if (!user) {
-      return;
-    }
-
-    //Persist Message
-    const savedMessage = await this.chatService.saveMessage(
-      user.id,
-      message,
+    const convo = await this.chatService.getOrCreateConversation(
+      sender.id,
+      payload.toUserId,
     );
 
-    //Broadcast to all clients
-    this.server.emit('new_message', {
-      id: savedMessage.id,
-      from: user.email,
-      content: savedMessage.content,
-      createdAt: savedMessage.createdAt,
-    });
+    const saved = await this.chatService.saveMessage(
+      convo.id,
+      sender.id,
+      payload.content,
+    );
 
+    const messageData = {
+      conversationId: convo.id,
+      from: sender.id,
+      content: saved.content,
+      createdAt: saved.createdAt,
+    };
+
+    // Send to both users
+    this.server.to(`user:${sender.id}`).emit('new_message', messageData);
+    this.server.to(`user:${payload.toUserId}`).emit('new_message', messageData);
   }
 }

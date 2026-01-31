@@ -67,6 +67,20 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+### WebSocket Testing
+
+Use the included `ws-test.js` script to test real-time chat. Run in two terminals with different JWT tokens:
+
+```bash
+# Terminal 1 (User A connects and sends message)
+TOKEN=<USER_A_JWT> node ws-test.js <USER_A_JWT> <USER_B_UUID> "Hello from A!"
+
+# Terminal 2 (User B connects and sends reply)
+TOKEN=<USER_B_JWT> node ws-test.js <USER_B_JWT> <USER_A_UUID> "Hi back from B!"
+```
+
+Each client will receive `new_message` events containing the conversation and message data.
+
 ## API Endpoints
 
 ### Authentication
@@ -80,10 +94,18 @@ $ npm run test:cov
 - `PATCH /users/:id` - Update user profile
 - `DELETE /users/:id` - Delete user account
 
-### Chat
-- `GET /chat/messages` - Get chat messages
-- `POST /chat/messages` - Send message
-- `GET /chat/conversations` - Get conversations
+### Chat (REST endpoints - see WebSocket section for real-time)
+- `GET /chat/conversations` - Get user conversations
+- `GET /chat/conversations/:id/messages` - Get messages for conversation
+- `POST /chat/conversations` - Create conversation
+
+### WebSocket Events (Real-time Chat)
+Connect to WebSocket with JWT token in auth payload:
+- **send_message** - Emit: `{ toUserId: string; content: string }` - Send private message to another user
+- **new_message** - Listen: `{ conversationId: string; from: string; content: string; createdAt: Date }` - Receive new messages
+- **chat_history** - Listen: Array of recent messages on connection (if enabled)
+
+Clients automatically join `user:{userId}` room on connection for targeted message delivery.
 
 ### Documents
 - `GET /documents` - List documents

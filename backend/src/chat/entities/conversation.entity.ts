@@ -5,22 +5,16 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 
-@Entity('messages')
-export class Message {
+@Entity('conversations')
+export class Conversation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  conversationId: string;
+  userAId: string;
 
   @Column()
-  senderId: string;
-
-  @Column('text')
-  content: string;
-
-  @Column({ default: false })
-  isRead: boolean;
+  userBId: string;
 
   @CreateDateColumn()
   createdAt: Date;
