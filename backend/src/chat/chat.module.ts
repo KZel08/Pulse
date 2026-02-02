@@ -7,9 +7,10 @@ import { Message } from './entities/message.entity';
 import { ChatService } from './chat.service';
 import { Conversation } from './entities/conversation.entity';
 import { ChatController } from './chat.controller';
+import { ConversationMember } from './entities/conversation-member.entity';
 
 @Module({
-  imports: [JwtModule, ConfigModule, TypeOrmModule.forFeature([Message, Conversation])],
+  imports: [JwtModule, ConfigModule, TypeOrmModule.forFeature([Message, Conversation, ConversationMember])],
   providers: [ChatGateway, ChatService],
   controllers: [ChatController],
 })

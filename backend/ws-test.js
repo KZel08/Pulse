@@ -26,3 +26,21 @@ socket.on('chat_history', (messages) => {
 socket.on('new_message', (msg) => {
   console.log('New message:', msg);
 });
+
+socket.emit('join_conversation', {
+  conversationId: 'CONVERSATION_ID'
+});
+
+socket.emit('typing_start', {
+  conversationId: 'CONVERSATION_ID'
+});
+
+setTimeout(() => {
+  socket.emit('typing_stop', {
+    conversationId: 'CONVERSATION_ID'
+  });
+}, 2000);
+
+socket.on('typing', (data) => {
+  console.log('Typing event:', data);
+});

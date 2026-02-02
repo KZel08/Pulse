@@ -11,10 +11,18 @@ export class Conversation {
   id: string;
 
   @Column()
-  userAId: string;
+  type: 'direct' | 'group';
 
-  @Column()
-  userBId: string;
+  // For direct chats only
+  @Column({ nullable: true })
+  userAId?: string;
+
+  @Column({ nullable: true })
+  userBId?: string;
+
+  // For group chats
+  @Column({ nullable: true })
+  name?: string;
 
   @CreateDateColumn()
   createdAt: Date;
