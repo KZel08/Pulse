@@ -33,4 +33,16 @@ export class StorageService {
       url: `http://localhost:9000/${bucket}/${fileName}`,
     };
   }
+
+  async generateSignedUrl(
+    bucket: string,
+    fileName: string,
+    expirySeconds = 300,
+  ) {
+    return this.client.presignedGetObject(
+      bucket,
+      fileName,
+      expirySeconds,
+    );
+  }
 }

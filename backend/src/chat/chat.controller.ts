@@ -15,12 +15,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('chat')
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
+    private readonly storageService: StorageService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -129,5 +131,20 @@ export class ChatController {
     );
 
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('files/:fileName')
+  async getSignedUrl(
+    @Param('fileName') fileName: string,
+    @Req() req: any,
+  ) {
+    // Optional: Add permission check later
+    const url = await this.storageService.generateSignedUrl(
+      'pulse-files',
+      fileName,
+    );
+
+    return { url };
   }
 }
