@@ -8,7 +8,10 @@ import {
   NotFoundException,
   ForbiddenException,
   Body,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
@@ -69,5 +72,62 @@ export class ChatController {
     }
 
     return messages;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('groups/:conversationId/add')
+  async addMember(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+    @Body() body: { userId: string },
+  ) {
+    return this.chatService.addMember(
+      conversationId,
+      req.user.userId,
+      body.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('groups/:conversationId/remove')
+  async removeMember(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+    @Body() body: { userId: string },
+  ) {
+    return this.chatService.removeMember(
+      conversationId,
+      req.user.userId,
+      body.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('groups/:conversationId/leave')
+  async leaveGroup(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+  ) {
+    return this.chatService.leaveGroup(
+      conversationId,
+      req.user.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('conversations/:conversationId/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @Param('conversationId') conversationId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const result = await this.chatService.uploadAndSendFile(
+      conversationId,
+      req.user.userId,
+      file,
+    );
+
+    return result;
   }
 }

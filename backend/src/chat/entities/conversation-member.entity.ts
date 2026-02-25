@@ -16,6 +16,9 @@ export class ConversationMember {
   @Column()
   userId: string;
 
+  @Column({ default: 'member' })
+  role: 'admin' | 'member';
+
   @CreateDateColumn()
   joinedAt: Date;
 }

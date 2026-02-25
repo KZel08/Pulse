@@ -16,8 +16,14 @@ export class Message {
   @Column()
   senderId: string;
 
-  @Column('text')
-  content: string;
+  @Column('text', { nullable: true })
+  content?: string;
+
+  @Column({ nullable: true })
+  fileUrl?: string;
+
+  @Column({ nullable: true })
+  fileName?: string;
 
   @Column({ default: false })
   isRead: boolean;
