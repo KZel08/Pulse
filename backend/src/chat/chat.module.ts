@@ -9,9 +9,10 @@ import { Conversation } from './entities/conversation.entity';
 import { ChatController } from './chat.controller';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
+import { MessageReceipt } from './entities/message-receipt.entity';
 
 @Module({
-  imports: [JwtModule, ConfigModule, TypeOrmModule.forFeature([Message, Conversation, ConversationMember])],
+  imports: [JwtModule, ConfigModule, TypeOrmModule.forFeature([Message, Conversation, ConversationMember, MessageReceipt])],
   providers: [ChatGateway, ChatService, StorageService],
   controllers: [ChatController],
   exports: [StorageService],

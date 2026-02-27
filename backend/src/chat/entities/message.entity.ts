@@ -30,4 +30,7 @@ export class Message {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({ default: false })
+  isDelivered: boolean;
 }

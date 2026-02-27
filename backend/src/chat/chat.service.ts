@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { Conversation } from './entities/conversation.entity';
-import { Not } from 'typeorm';
+import { Not, In } from 'typeorm';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
+import { ChatGateway } from './chat.gateway';
+import { MessageReceipt } from './entities/message-receipt.entity';
 
 @Injectable()
 export class ChatService {
@@ -16,8 +18,35 @@ export class ChatService {
     private readonly convoRepo: Repository<Conversation>,
     @InjectRepository(ConversationMember)
     private readonly memberRepo: Repository<ConversationMember>,
+    @InjectRepository(MessageReceipt)
+    private readonly receiptRepo: Repository<MessageReceipt>,
     private readonly storageService: StorageService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
   ) {}
+
+  async markConversationAsRead(
+    conversationId: string,
+    userId: string,
+  ) {
+    const messages = await this.messageRepo.find({
+      where: { conversationId },
+    });
+
+    const messageIds = messages.map((m) => m.id);
+
+    await this.receiptRepo.update(
+      { messageId: In(messageIds), userId },
+      { isRead: true },
+    );
+
+    // Emit read receipt to all participants in the conversation
+    if (this.chatGateway && this.chatGateway.server) {
+      this.chatGateway.server.to(conversationId).emit('message_read', {
+        conversationId,
+      });
+    }
+  }
 
   async getOrCreateConversation(userA: string, userB: string) {
     let convo = await this.convoRepo.findOne({
@@ -52,7 +81,26 @@ export class ChatService {
       senderId,
       content,
     });
-    return this.messageRepo.save(message);
+    
+    const savedMessage = await this.messageRepo.save(message);
+    
+    // Create message receipts for all conversation members except sender
+    const members = await this.memberRepo.find({
+      where: { conversationId },
+    });
+
+    const receipts = members
+      .filter((m) => m.userId !== senderId)
+      .map((m) => ({
+        messageId: savedMessage.id,
+        userId: m.userId,
+        isDelivered: false,
+        isRead: false,
+      }));
+
+    await this.receiptRepo.save(receipts);
+    
+    return savedMessage;
   }
 
   async getConversationMessages(conversationId: string, limit = 50) {
@@ -315,6 +363,20 @@ async getUserConversations(userId: string) {
     return { left: true };
   }
 
+  async markUserDelivered(messageId: string, userId: string) {
+    await this.receiptRepo.update(
+      { messageId, userId },
+      { isDelivered: true },
+    );
+  }
+
+  async markAsRead(messageId: string, userId: string) {
+    await this.receiptRepo.update(
+      { messageId, userId },
+      { isRead: true },
+    );
+  }
+
   async uploadAndSendFile(
     conversationId: string,
     senderId: string,
@@ -336,7 +398,23 @@ async getUserConversations(userId: string) {
       fileName: file.originalname,
       isRead: false,
     });
+    
+    // Create message receipts for all conversation members except sender
+    const members = await this.memberRepo.find({
+      where: { conversationId },
+    });
 
+    const receipts = members
+      .filter((m) => m.userId !== senderId)
+      .map((m) => ({
+        messageId: message.id,
+        userId: m.userId,
+        isDelivered: false,
+        isRead: false,
+      }));
+
+    await this.receiptRepo.save(receipts);
+    
     return message;
   }
 }

@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Inject, forwardRef } from '@nestjs/common';
 import { ChatService } from './chat.service';
 
 const onlineUsers = new Map<string, number>();
@@ -29,6 +30,7 @@ export class ChatGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
   ) {}
 
@@ -115,15 +117,17 @@ export class ChatGateway
       payload.content,
     );
 
-    const messageData = {
-      conversationId: payload.conversationId,
-      from: sender.id,
-      content: saved.content,
-      createdAt: saved.createdAt,
-    };
+    // Broadcast message
+    this.server.to(payload.conversationId).emit('new_message', saved);
 
-    // Broadcast to all users in the conversation room
-    this.server.to(payload.conversationId).emit('new_message', messageData);
+    // Mark message as delivered to all online users in the conversation
+    // Note: This would typically be done when the client acknowledges receipt
+    // For now, we can leave it to be handled by client-side read receipt logic
+    
+    // Notify sender that message was delivered
+    this.server.to(payload.conversationId).emit('message_delivered', {
+      messageId: saved.id,
+    });
   }
 
   @SubscribeMessage('typing_start')
@@ -166,6 +170,30 @@ export class ChatGateway
     @ConnectedSocket() client: Socket,
   ) {
     client.join(payload.conversationId);
+  }
+
+  @SubscribeMessage('mark_delivered')
+  async handleMarkDelivered(
+    @MessageBody()
+    payload: { messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+    if (!user) return;
+
+    await this.chatService.markUserDelivered(payload.messageId, user.id);
+  }
+
+  @SubscribeMessage('mark_read')
+  async handleMarkRead(
+    @MessageBody()
+    payload: { messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+    if (!user) return;
+
+    await this.chatService.markAsRead(payload.messageId, user.id);
   }
 
   private isUserOnline(userId: string): boolean {

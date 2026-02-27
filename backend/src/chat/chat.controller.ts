@@ -134,6 +134,20 @@ export class ChatController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('conversations/:conversationId/read')
+  async markAsRead(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+  ) {
+    await this.chatService.markConversationAsRead(
+      conversationId,
+      req.user.userId,
+    );
+
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('files/:fileName')
   async getSignedUrl(
     @Param('fileName') fileName: string,
