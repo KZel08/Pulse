@@ -19,8 +19,14 @@ export class MessageReceipt {
   @Column({ default: false })
   isDelivered: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  deliveredAt: Date;
+
   @Column({ default: false })
   isRead: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  readAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

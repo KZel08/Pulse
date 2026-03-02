@@ -148,11 +148,22 @@ async getUserConversations(userId: string) {
       order: { createdAt: 'DESC' },
     });
 
-    const unreadCount = await this.messageRepo.count({
+    // Get all messages in the conversation sent by other users
+    const messages = await this.messageRepo.find({
       where: {
         conversationId: convo.id,
-        isRead: false,
         senderId: Not(userId),
+      },
+    });
+
+    const messageIds = messages.map(m => m.id);
+
+    // Count unread messages by checking message receipts
+    const unreadCount = await this.receiptRepo.count({
+      where: {
+        messageId: In(messageIds),
+        userId,
+        isRead: false,
       },
     });
 
@@ -185,11 +196,22 @@ async getUserConversations(userId: string) {
       order: { createdAt: 'DESC' },
     });
 
-    const unreadCount = await this.messageRepo.count({
+    // Get all messages in the conversation sent by other users
+    const messages = await this.messageRepo.find({
       where: {
         conversationId: convo.id,
-        isRead: false,
         senderId: Not(userId),
+      },
+    });
+
+    const messageIds = messages.map(m => m.id);
+
+    // Count unread messages by checking message receipts
+    const unreadCount = await this.receiptRepo.count({
+      where: {
+        messageId: In(messageIds),
+        userId,
+        isRead: false,
       },
     });
 
@@ -366,15 +388,50 @@ async getUserConversations(userId: string) {
   async markUserDelivered(messageId: string, userId: string) {
     await this.receiptRepo.update(
       { messageId, userId },
-      { isDelivered: true },
+      { isDelivered: true, 
+        deliveredAt: new Date()
+     },
     );
   }
 
   async markAsRead(messageId: string, userId: string) {
     await this.receiptRepo.update(
       { messageId, userId },
-      { isRead: true },
+      { isRead: true, readAt: new Date() },
     );
+  }
+
+  async markAsDelivered(messageId: string) {
+    await this.receiptRepo.update(
+      { messageId },
+      { isDelivered: true },
+    );
+  }
+
+  async getConversationMembers(conversationId: string) {
+    return this.memberRepo.find({
+      where: { conversationId },
+    });
+  }
+
+  async getMessageById(messageId: string) {
+    return this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+  }
+
+  async getMessageReadStatus(messageId: string) {
+    const receipts = await this.receiptRepo.find({
+      where: { messageId, isRead: true },
+    });
+
+    return {
+      messageId,
+      seenBy: receipts.map(receipt => ({
+        userId: receipt.userId,
+        readAt: receipt.createdAt,
+      })),
+    };
   }
 
   async uploadAndSendFile(
@@ -396,7 +453,6 @@ async getUserConversations(userId: string) {
       senderId,
       fileUrl: uploaded.url,
       fileName: file.originalname,
-      isRead: false,
     });
     
     // Create message receipts for all conversation members except sender
@@ -417,4 +473,5 @@ async getUserConversations(userId: string) {
     
     return message;
   }
+
 }

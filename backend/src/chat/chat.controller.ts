@@ -148,6 +148,14 @@ export class ChatController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('messages/:messageId/seen')
+  async getSeenBy(
+    @Param('messageId') messageId: string,
+  ) {
+    return this.chatService.getMessageReadStatus(messageId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('files/:fileName')
   async getSignedUrl(
     @Param('fileName') fileName: string,

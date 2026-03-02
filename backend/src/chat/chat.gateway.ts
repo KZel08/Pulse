@@ -120,14 +120,20 @@ export class ChatGateway
     // Broadcast message
     this.server.to(payload.conversationId).emit('new_message', saved);
 
-    // Mark message as delivered to all online users in the conversation
-    // Note: This would typically be done when the client acknowledges receipt
-    // For now, we can leave it to be handled by client-side read receipt logic
-    
-    // Notify sender that message was delivered
-    this.server.to(payload.conversationId).emit('message_delivered', {
-      messageId: saved.id,
-    });
+    // Get all conversation members except sender
+    const members = await this.chatService.getConversationMembers(payload.conversationId);
+    const recipients = members.filter(member => member.userId !== sender.id);
+
+    // Mark delivered per user and emit real-time events
+    for (const recipient of recipients) {
+      await this.chatService.markUserDelivered(saved.id, recipient.userId);
+      
+      this.server.to(payload.conversationId).emit('message_delivered', {
+        messageId: saved.id,
+        userId: recipient.userId,
+        deliveredAt: new Date(),
+      });
+    }
   }
 
   @SubscribeMessage('typing_start')
@@ -194,9 +200,33 @@ export class ChatGateway
     if (!user) return;
 
     await this.chatService.markAsRead(payload.messageId, user.id);
+
+    // Get message to find conversationId for emitting read event
+    const message = await this.chatService.getMessageById(payload.messageId);
+    if (message) {
+      this.server.to(message.conversationId).emit('messages_read', {
+        conversationId: message.conversationId,
+        userId: user.id,
+        readAt: new Date(),
+        messageId: payload.messageId,
+      });
+    }
+  }
+
+  @SubscribeMessage('mark_conversation_as_read')
+  async handleMarkConversationAsRead(
+    @MessageBody()
+    payload: { conversationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+    if (!user) return;
+
+    await this.chatService.markConversationAsRead(payload.conversationId, user.id);
   }
 
   private isUserOnline(userId: string): boolean {
     return onlineUsers.has(userId);
   }
+
 }

@@ -25,12 +25,6 @@ export class Message {
   @Column({ nullable: true })
   fileName?: string;
 
-  @Column({ default: false })
-  isRead: boolean;
-
   @CreateDateColumn()
   createdAt: Date;
-
-  @Column({ default: false })
-  isDelivered: boolean;
 }
