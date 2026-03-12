@@ -20,7 +20,7 @@ import { ChatGateway } from './chat/chat.gateway';
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: false,
     }),
 
     UsersModule,
