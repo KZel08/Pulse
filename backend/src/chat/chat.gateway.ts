@@ -20,10 +20,7 @@ const onlineUsers = new Map<string, number>();
     origin: '*',
   },
 })
-
-export class ChatGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -74,7 +71,6 @@ export class ChatGateway
       memberships.forEach((m) => {
         client.join(m.conversationId);
       });
-
     } catch (err) {
       client.disconnect();
     }
@@ -82,21 +78,21 @@ export class ChatGateway
 
   handleDisconnect(client: Socket) {
     const user = client.data?.user;
-  if (!user) return;
+    if (!user) return;
 
-  const count = onlineUsers.get(user.id) || 0;
+    const count = onlineUsers.get(user.id) || 0;
 
-  if (count <= 1) {
-    onlineUsers.delete(user.id);
+    if (count <= 1) {
+      onlineUsers.delete(user.id);
 
-    // Notify others user is offline
-    client.broadcast.emit('presence', {
-      userId: user.id,
-      status: 'offline',
-    });
-  } else {
-    onlineUsers.set(user.id, count - 1);
-  }
+      // Notify others user is offline
+      client.broadcast.emit('presence', {
+        userId: user.id,
+        status: 'offline',
+      });
+    } else {
+      onlineUsers.set(user.id, count - 1);
+    }
     console.log('Client disconnected:', client.data?.user);
   }
 
@@ -121,13 +117,15 @@ export class ChatGateway
     this.server.to(payload.conversationId).emit('new_message', saved);
 
     // Get all conversation members except sender
-    const members = await this.chatService.getConversationMembers(payload.conversationId);
-    const recipients = members.filter(member => member.userId !== sender.id);
+    const members = await this.chatService.getConversationMembers(
+      payload.conversationId,
+    );
+    const recipients = members.filter((member) => member.userId !== sender.id);
 
     // Mark delivered per user and emit real-time events
     for (const recipient of recipients) {
       await this.chatService.markUserDelivered(saved.id, recipient.userId);
-      
+
       this.server.to(payload.conversationId).emit('message_delivered', {
         messageId: saved.id,
         userId: recipient.userId,
@@ -222,11 +220,13 @@ export class ChatGateway
     const user = client.data.user;
     if (!user) return;
 
-    await this.chatService.markConversationAsRead(payload.conversationId, user.id);
+    await this.chatService.markConversationAsRead(
+      payload.conversationId,
+      user.id,
+    );
   }
 
   private isUserOnline(userId: string): boolean {
     return onlineUsers.has(userId);
   }
-
 }

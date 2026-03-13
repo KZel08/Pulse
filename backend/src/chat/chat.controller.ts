@@ -10,6 +10,7 @@ import {
   Body,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -29,6 +30,12 @@ export class ChatController {
   @Get('conversations')
   async getConversations(@Req() req: any) {
     return this.chatService.getUserConversations(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('search')
+  async search(@Query('q') query: string, @Req() req: any) {
+    return this.chatService.searchMessages(query, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -110,10 +117,7 @@ export class ChatController {
     @Param('conversationId') conversationId: string,
     @Req() req: any,
   ) {
-    return this.chatService.leaveGroup(
-      conversationId,
-      req.user.userId,
-    );
+    return this.chatService.leaveGroup(conversationId, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -149,18 +153,13 @@ export class ChatController {
 
   @UseGuards(JwtAuthGuard)
   @Get('messages/:messageId/seen')
-  async getSeenBy(
-    @Param('messageId') messageId: string,
-  ) {
+  async getSeenBy(@Param('messageId') messageId: string) {
     return this.chatService.getMessageReadStatus(messageId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('files/:fileName')
-  async getSignedUrl(
-    @Param('fileName') fileName: string,
-    @Req() req: any,
-  ) {
+  async getSignedUrl(@Param('fileName') fileName: string, @Req() req: any) {
     // Optional: Add permission check later
     const url = await this.storageService.generateSignedUrl(
       'pulse-files',

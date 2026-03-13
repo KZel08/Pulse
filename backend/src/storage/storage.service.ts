@@ -21,13 +21,9 @@ export class StorageService {
     buffer: Buffer,
     mimeType: string,
   ) {
-    await this.client.putObject(
-      bucket,
-      fileName,
-      buffer,
-      undefined,
-      { 'Content-Type': mimeType },
-    );
+    await this.client.putObject(bucket, fileName, buffer, undefined, {
+      'Content-Type': mimeType,
+    });
 
     return {
       url: `http://localhost:9000/${bucket}/${fileName}`,
@@ -39,10 +35,6 @@ export class StorageService {
     fileName: string,
     expirySeconds = 300,
   ) {
-    return this.client.presignedGetObject(
-      bucket,
-      fileName,
-      expirySeconds,
-    );
+    return this.client.presignedGetObject(bucket, fileName, expirySeconds);
   }
 }

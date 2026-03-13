@@ -25,10 +25,7 @@ export class ChatService {
     private readonly chatGateway: ChatGateway,
   ) {}
 
-  async markConversationAsRead(
-    conversationId: string,
-    userId: string,
-  ) {
+  async markConversationAsRead(conversationId: string, userId: string) {
     const messages = await this.messageRepo.find({
       where: { conversationId },
     });
@@ -71,19 +68,25 @@ export class ChatService {
   /**
    * Persist a chat message
    */
-  async saveMessage(
-    conversationId: string,
-    senderId: string,
-    content: string,
-  ) {
+  async saveMessage(conversationId: string, senderId: string, content: string) {
     const message = this.messageRepo.create({
       conversationId,
       senderId,
       content,
     });
-    
+
     const savedMessage = await this.messageRepo.save(message);
-    
+
+    // Update search_vector for full-text search
+    await this.messageRepo.query(
+      `
+      UPDATE messages
+      SET search_vector = to_tsvector('english', content)
+      WHERE id = $1
+      `,
+      [savedMessage.id],
+    );
+
     // Create message receipts for all conversation members except sender
     const members = await this.memberRepo.find({
       where: { conversationId },
@@ -99,7 +102,7 @@ export class ChatService {
       }));
 
     await this.receiptRepo.save(receipts);
-    
+
     return savedMessage;
   }
 
@@ -110,129 +113,140 @@ export class ChatService {
       take: limit,
     });
   }
-async getUserConversations(userId: string) {
-  const conversations = await this.convoRepo.find({
-    where: [
-      { userAId: userId },
-      { userBId: userId },
-    ],
-    order: { createdAt: 'DESC' },
-  });
 
-  const memberships = await this.memberRepo.find({
-    where: { userId },
-  });
+  async searchMessages(query: string, userId: string) {
+    return this.messageRepo.query(
+      `
+      SELECT *
+      FROM messages
+      WHERE search_vector @@ plainto_tsquery('english', $1)
+      ORDER BY createdAt DESC
+      LIMIT 50
+      `,
+      [query],
+    );
+  }
 
-  const results: Array<{
-    conversationId: string;
-    otherUserId: string | null;
-    name: string | null;
-    type: 'direct' | 'group';
-    lastMessage: {
-      content: string | undefined;
-      createdAt: Date;
-      senderId: string;
-    } | null;
-    unreadCount: number;
-  }> = [];
-
-  for (const convo of conversations) {
-    const otherUserId =
-      convo.userAId === userId ? convo.userBId : convo.userAId;
-
-    // Skip if otherUserId is undefined (shouldn't happen in valid data)
-    if (!otherUserId) continue;
-
-    const lastMessage = await this.messageRepo.findOne({
-      where: { conversationId: convo.id },
+  async getUserConversations(userId: string) {
+    const conversations = await this.convoRepo.find({
+      where: [{ userAId: userId }, { userBId: userId }],
       order: { createdAt: 'DESC' },
     });
 
-    // Get all messages in the conversation sent by other users
-    const messages = await this.messageRepo.find({
-      where: {
+    const memberships = await this.memberRepo.find({
+      where: { userId },
+    });
+
+    const results: Array<{
+      conversationId: string;
+      otherUserId: string | null;
+      name: string | null;
+      type: 'direct' | 'group';
+      lastMessage: {
+        content: string | undefined;
+        createdAt: Date;
+        senderId: string;
+      } | null;
+      unreadCount: number;
+    }> = [];
+
+    for (const convo of conversations) {
+      const otherUserId =
+        convo.userAId === userId ? convo.userBId : convo.userAId;
+
+      // Skip if otherUserId is undefined (shouldn't happen in valid data)
+      if (!otherUserId) continue;
+
+      const lastMessage = await this.messageRepo.findOne({
+        where: { conversationId: convo.id },
+        order: { createdAt: 'DESC' },
+      });
+
+      // Get all messages in the conversation sent by other users
+      const messages = await this.messageRepo.find({
+        where: {
+          conversationId: convo.id,
+          senderId: Not(userId),
+        },
+      });
+
+      const messageIds = messages.map((m) => m.id);
+
+      // Count unread messages by checking message receipts
+      const unreadCount = await this.receiptRepo.count({
+        where: {
+          messageId: In(messageIds),
+          userId,
+          isRead: false,
+        },
+      });
+
+      results.push({
         conversationId: convo.id,
-        senderId: Not(userId),
-      },
-    });
+        otherUserId,
+        name: null,
+        type: convo.type,
+        lastMessage: lastMessage
+          ? {
+              content: lastMessage.content,
+              createdAt: lastMessage.createdAt,
+              senderId: lastMessage.senderId,
+            }
+          : null,
+        unreadCount,
+      });
+    }
 
-    const messageIds = messages.map(m => m.id);
+    // Add group conversations from memberships
+    for (const membership of memberships) {
+      const convo = await this.convoRepo.findOne({
+        where: { id: membership.conversationId },
+      });
 
-    // Count unread messages by checking message receipts
-    const unreadCount = await this.receiptRepo.count({
-      where: {
-        messageId: In(messageIds),
-        userId,
-        isRead: false,
-      },
-    });
+      if (!convo || convo.type !== 'group') continue;
 
-    results.push({
-      conversationId: convo.id,
-      otherUserId,
-      name: null,
-      type: convo.type,
-      lastMessage: lastMessage
-        ? {
-            content: lastMessage.content,
-            createdAt: lastMessage.createdAt,
-            senderId: lastMessage.senderId,
-          }
-        : null,
-      unreadCount,
-    });
-  }
+      const lastMessage = await this.messageRepo.findOne({
+        where: { conversationId: convo.id },
+        order: { createdAt: 'DESC' },
+      });
 
-  // Add group conversations from memberships
-  for (const membership of memberships) {
-    const convo = await this.convoRepo.findOne({
-      where: { id: membership.conversationId },
-    });
+      // Get all messages in the conversation sent by other users
+      const messages = await this.messageRepo.find({
+        where: {
+          conversationId: convo.id,
+          senderId: Not(userId),
+        },
+      });
 
-    if (!convo || convo.type !== 'group') continue;
+      const messageIds = messages.map((m) => m.id);
 
-    const lastMessage = await this.messageRepo.findOne({
-      where: { conversationId: convo.id },
-      order: { createdAt: 'DESC' },
-    });
+      // Count unread messages by checking message receipts
+      const unreadCount = await this.receiptRepo.count({
+        where: {
+          messageId: In(messageIds),
+          userId,
+          isRead: false,
+        },
+      });
 
-    // Get all messages in the conversation sent by other users
-    const messages = await this.messageRepo.find({
-      where: {
+      results.push({
         conversationId: convo.id,
-        senderId: Not(userId),
-      },
-    });
+        otherUserId: null,
+        name: convo.name || null,
+        type: convo.type,
+        lastMessage: lastMessage
+          ? {
+              content: lastMessage.content,
+              createdAt: lastMessage.createdAt,
+              senderId: lastMessage.senderId,
+            }
+          : null,
+        unreadCount,
+      });
+    }
 
-    const messageIds = messages.map(m => m.id);
-
-    // Count unread messages by checking message receipts
-    const unreadCount = await this.receiptRepo.count({
-      where: {
-        messageId: In(messageIds),
-        userId,
-        isRead: false,
-      },
-    });
-
-    results.push({
-      conversationId: convo.id,
-      otherUserId: null,
-      name: convo.name || null,
-      type: convo.type,
-      lastMessage: lastMessage
-        ? {
-            content: lastMessage.content,
-            createdAt: lastMessage.createdAt,
-            senderId: lastMessage.senderId,
-          }
-        : null,
-      unreadCount,
-    });
+    return results;
   }
-
-  return results;
-}
 
   async getUserMemberships(userId: string) {
     return this.memberRepo.find({
@@ -248,12 +262,12 @@ async getUserConversations(userId: string) {
     const convo = await this.convoRepo.findOne({
       where: { id: conversationId },
     });
-    if(!convo) {
+    if (!convo) {
       return null;
     }
 
     //Access control: user must be a participant
-    if(convo.userAId !== userId && convo.userBId !== userId) {
+    if (convo.userAId !== userId && convo.userBId !== userId) {
       return null;
     }
 
@@ -369,9 +383,7 @@ async getUserConversations(userId: string) {
 
     // If user was admin, ensure at least one admin remains
     if (member.role === 'admin') {
-      const admins = remainingMembers.filter(
-        (m) => m.role === 'admin'
-      );
+      const admins = remainingMembers.filter((m) => m.role === 'admin');
 
       if (admins.length === 0) {
         // Promote first member
@@ -388,9 +400,7 @@ async getUserConversations(userId: string) {
   async markUserDelivered(messageId: string, userId: string) {
     await this.receiptRepo.update(
       { messageId, userId },
-      { isDelivered: true, 
-        deliveredAt: new Date()
-     },
+      { isDelivered: true, deliveredAt: new Date() },
     );
   }
 
@@ -402,10 +412,7 @@ async getUserConversations(userId: string) {
   }
 
   async markAsDelivered(messageId: string) {
-    await this.receiptRepo.update(
-      { messageId },
-      { isDelivered: true },
-    );
+    await this.receiptRepo.update({ messageId }, { isDelivered: true });
   }
 
   async getConversationMembers(conversationId: string) {
@@ -427,7 +434,7 @@ async getUserConversations(userId: string) {
 
     return {
       messageId,
-      seenBy: receipts.map(receipt => ({
+      seenBy: receipts.map((receipt) => ({
         userId: receipt.userId,
         readAt: receipt.createdAt,
       })),
@@ -454,7 +461,7 @@ async getUserConversations(userId: string) {
       fileUrl: uploaded.url,
       fileName: file.originalname,
     });
-    
+
     // Create message receipts for all conversation members except sender
     const members = await this.memberRepo.find({
       where: { conversationId },
@@ -470,8 +477,7 @@ async getUserConversations(userId: string) {
       }));
 
     await this.receiptRepo.save(receipts);
-    
+
     return message;
   }
-
 }

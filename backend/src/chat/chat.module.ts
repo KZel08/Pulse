@@ -12,7 +12,16 @@ import { StorageService } from '../storage/storage.service';
 import { MessageReceipt } from './entities/message-receipt.entity';
 
 @Module({
-  imports: [JwtModule, ConfigModule, TypeOrmModule.forFeature([Message, Conversation, ConversationMember, MessageReceipt])],
+  imports: [
+    JwtModule,
+    ConfigModule,
+    TypeOrmModule.forFeature([
+      Message,
+      Conversation,
+      ConversationMember,
+      MessageReceipt,
+    ]),
+  ],
   providers: [ChatGateway, ChatService, StorageService],
   controllers: [ChatController],
   exports: [StorageService],

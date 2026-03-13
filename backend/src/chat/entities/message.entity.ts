@@ -27,4 +27,7 @@ export class Message {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({ type: 'tsvector', nullable: true })
+  searchVector: string;
 }
