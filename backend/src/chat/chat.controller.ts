@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { StorageService } from '../storage/storage.service';
+import { AiService } from '../ai/ai.service';
 
 @Controller('chat')
 export class ChatController {
@@ -24,6 +25,7 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
     private readonly storageService: StorageService,
+    private readonly aiService: AiService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -158,6 +160,18 @@ export class ChatController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('messages/:messageId/reactions')
+  async getReactions(@Param('messageId') messageId: string) {
+    return this.chatService.getReactions(messageId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('conversations/:id/pins')
+  async getPins(@Param('id') id: string) {
+    return this.chatService.getPinnedMessages(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('files/:fileName')
   async getSignedUrl(@Param('fileName') fileName: string, @Req() req: any) {
     // Optional: Add permission check later
@@ -167,5 +181,19 @@ export class ChatController {
     );
 
     return { url };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('conversations/:id/summary')
+  async summarizeConversation(@Param('id') id: string) {
+    const messages = await this.chatService.getMessagesForConversation(id, '');
+    const texts = (messages?.map((m) => m.content).filter((c): c is string => Boolean(c))) || [];
+    return this.aiService.summarize(texts);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('smart-reply')
+  async smartReply(@Body() body: { messages: string[] }) {
+    return this.aiService.smartReplies(body.messages);
   }
 }

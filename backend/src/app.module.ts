@@ -5,6 +5,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { ChatGateway } from './chat/chat.gateway';
+import { AiModule } from './ai/ai.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -28,6 +30,10 @@ import { ChatGateway } from './chat/chat.gateway';
     AuthModule,
 
     ChatModule,
+
+    AiModule,
+
+    DocumentsModule,
   ],
 })
 export class AppModule {}

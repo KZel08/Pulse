@@ -27,6 +27,13 @@ services:
     volumes:
       - minio_data:/data
 
+  onlyoffice:
+    image: onlyoffice/documentserver
+    ports:
+      - "8080:80"
+    environment:
+      JWT_ENABLED: "false"
+
 volumes:
   postgres_data:
   minio_data:

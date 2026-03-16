@@ -8,6 +8,8 @@ import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
 import { ChatGateway } from './chat.gateway';
 import { MessageReceipt } from './entities/message-receipt.entity';
+import { MessageReaction } from './entities/message-reaction.entity';
+import { PinnedMessage } from './entities/pinned-message.entity';
 
 @Injectable()
 export class ChatService {
@@ -20,6 +22,10 @@ export class ChatService {
     private readonly memberRepo: Repository<ConversationMember>,
     @InjectRepository(MessageReceipt)
     private readonly receiptRepo: Repository<MessageReceipt>,
+    @InjectRepository(MessageReaction)
+    private readonly reactionRepo: Repository<MessageReaction>,
+    @InjectRepository(PinnedMessage)
+    private readonly pinnedRepo: Repository<PinnedMessage>,
     private readonly storageService: StorageService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
@@ -479,5 +485,60 @@ export class ChatService {
     await this.receiptRepo.save(receipts);
 
     return message;
+  }
+
+  async addReaction(messageId: string, userId: string, emoji: string) {
+    return this.reactionRepo.save({
+      messageId,
+      userId,
+      emoji,
+    });
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji: string) {
+    return this.reactionRepo.delete({
+      messageId,
+      userId,
+      emoji,
+    });
+  }
+
+  async getReactions(messageId: string) {
+    return this.reactionRepo.query(
+      `
+      SELECT emoji, COUNT(*) as count
+      FROM message_reactions
+      WHERE "messageId" = $1
+      GROUP BY emoji
+    `,
+      [messageId],
+    );
+  }
+
+  async pinMessage(messageId: string, conversationId: string, userId: string) {
+    return this.pinnedRepo.save({
+      messageId,
+      conversationId,
+      pinnedBy: userId,
+    });
+  }
+
+  async unpinMessage(messageId: string) {
+    return this.pinnedRepo.delete({
+      messageId,
+    });
+  }
+
+  async getPinnedMessages(conversationId: string) {
+    return this.pinnedRepo.query(
+      `
+      SELECT pm.*, m.content, m."senderId"
+      FROM pinned_messages pm
+      JOIN messages m ON pm."messageId" = m.id
+      WHERE pm."conversationId" = $1
+      ORDER BY pm."createdAt" DESC
+    `,
+      [conversationId],
+    );
   }
 }

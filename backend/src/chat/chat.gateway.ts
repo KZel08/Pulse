@@ -226,6 +226,72 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  @SubscribeMessage('add_reaction')
+  async handleAddReaction(
+    @MessageBody() payload: { messageId: string; emoji: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+
+    await this.chatService.addReaction(
+      payload.messageId,
+      user.id,
+      payload.emoji,
+    );
+
+    this.server.emit('reaction_added', {
+      messageId: payload.messageId,
+      emoji: payload.emoji,
+      userId: user.id,
+    });
+  }
+
+  @SubscribeMessage('remove_reaction')
+  async handleRemoveReaction(
+    @MessageBody() payload: { messageId: string; emoji: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+
+    await this.chatService.removeReaction(
+      payload.messageId,
+      user.id,
+      payload.emoji,
+    );
+
+    this.server.emit('reaction_removed', {
+      messageId: payload.messageId,
+      emoji: payload.emoji,
+      userId: user.id,
+    });
+  }
+
+  @SubscribeMessage('pin_message')
+  async handlePinMessage(
+    @MessageBody() payload: { messageId: string; conversationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = client.data.user;
+
+    const result = await this.chatService.pinMessage(
+      payload.messageId,
+      payload.conversationId,
+      user.id,
+    );
+
+    this.server.to(payload.conversationId).emit('message_pinned', result);
+  }
+
+  @SubscribeMessage('unpin_message')
+  async handleUnpinMessage(
+    @MessageBody() payload: { messageId: string; conversationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    await this.chatService.unpinMessage(payload.messageId);
+
+    this.server.to(payload.conversationId).emit('message_unpinned', payload);
+  }
+
   private isUserOnline(userId: string): boolean {
     return onlineUsers.has(userId);
   }

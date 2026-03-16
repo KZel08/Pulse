@@ -10,6 +10,8 @@ import { ChatController } from './chat.controller';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
 import { MessageReceipt } from './entities/message-receipt.entity';
+import { MessageReaction } from './entities/message-reaction.entity';
+import { PinnedMessage } from './entities/pinned-message.entity';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { MessageReceipt } from './entities/message-receipt.entity';
       Conversation,
       ConversationMember,
       MessageReceipt,
+      MessageReaction,
+      PinnedMessage
     ]),
   ],
   providers: [ChatGateway, ChatService, StorageService],
