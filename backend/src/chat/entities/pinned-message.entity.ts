@@ -3,14 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  Unique
-} from "typeorm";
+  Unique,
+} from 'typeorm';
 
-@Entity("pinned_messages")
-@Unique(["messageId"])
+@Entity('pinned_messages')
+@Unique(['messageId'])
 export class PinnedMessage {
-
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

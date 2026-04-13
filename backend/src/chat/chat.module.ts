@@ -9,6 +9,7 @@ import { Conversation } from './entities/conversation.entity';
 import { ChatController } from './chat.controller';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
+import { AiModule } from '../ai/ai.module';
 import { MessageReceipt } from './entities/message-receipt.entity';
 import { MessageReaction } from './entities/message-reaction.entity';
 import { PinnedMessage } from './entities/pinned-message.entity';
@@ -17,13 +18,14 @@ import { PinnedMessage } from './entities/pinned-message.entity';
   imports: [
     JwtModule,
     ConfigModule,
+    AiModule,
     TypeOrmModule.forFeature([
       Message,
       Conversation,
       ConversationMember,
       MessageReceipt,
       MessageReaction,
-      PinnedMessage
+      PinnedMessage,
     ]),
   ],
   providers: [ChatGateway, ChatService, StorageService],

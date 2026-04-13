@@ -25,6 +25,12 @@ export class Message {
   @Column({ nullable: true })
   fileName?: string;
 
+  @Column({ default: false })
+  isAIValidated: boolean;
+
+  @Column({ nullable: true })
+  safetyScore?: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

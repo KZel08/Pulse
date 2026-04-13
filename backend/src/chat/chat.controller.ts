@@ -187,7 +187,9 @@ export class ChatController {
   @Get('conversations/:id/summary')
   async summarizeConversation(@Param('id') id: string) {
     const messages = await this.chatService.getMessagesForConversation(id, '');
-    const texts = (messages?.map((m) => m.content).filter((c): c is string => Boolean(c))) || [];
+    const texts =
+      messages?.map((m) => m.content).filter((c): c is string => Boolean(c)) ||
+      [];
     return this.aiService.summarize(texts);
   }
 

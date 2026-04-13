@@ -16,7 +16,9 @@ export class Init1773327230044 implements MigrationInterface {
         CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY ("id")
       )
     `);
-    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_97672ac88f789774dd47f7c8be" ON "users" ("email")`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_97672ac88f789774dd47f7c8be" ON "users" ("email")`,
+    );
 
     // Create messages table
     await queryRunner.query(`
@@ -79,7 +81,9 @@ export class Init1773327230044 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "conversations"`);
     await queryRunner.query(`DROP TABLE "message_receipts"`);
     await queryRunner.query(`DROP TABLE "messages"`);
-    await queryRunner.query(`DROP INDEX "public"."IDX_97672ac88f789774dd47f7c8be"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_97672ac88f789774dd47f7c8be"`,
+    );
     await queryRunner.query(`DROP TABLE "users"`);
   }
 }

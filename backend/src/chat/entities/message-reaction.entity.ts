@@ -3,14 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  Unique
-} from "typeorm";
+  Unique,
+} from 'typeorm';
 
-@Entity("message_reactions")
-@Unique(["messageId", "userId", "emoji"])
+@Entity('message_reactions')
+@Unique(['messageId', 'userId', 'emoji'])
 export class MessageReaction {
-
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

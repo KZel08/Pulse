@@ -7,6 +7,7 @@ import { Not, In } from 'typeorm';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { StorageService } from '../storage/storage.service';
 import { ChatGateway } from './chat.gateway';
+import { AiService } from '../ai/ai.service';
 import { MessageReceipt } from './entities/message-receipt.entity';
 import { MessageReaction } from './entities/message-reaction.entity';
 import { PinnedMessage } from './entities/pinned-message.entity';
@@ -27,6 +28,7 @@ export class ChatService {
     @InjectRepository(PinnedMessage)
     private readonly pinnedRepo: Repository<PinnedMessage>,
     private readonly storageService: StorageService,
+    private readonly aiService: AiService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
   ) {}
@@ -74,24 +76,46 @@ export class ChatService {
   /**
    * Persist a chat message
    */
-  async saveMessage(conversationId: string, senderId: string, content: string) {
+  async saveMessage(
+    conversationId: string,
+    senderId: string,
+    content: string,
+    file?: { url: string; name: string },
+  ) {
+    // AI Safety Validation
+    let safetyResult: any = null;
+    if (content && content.trim()) {
+      try {
+        safetyResult = await this.aiService.validateSafety([content]);
+      } catch (error) {
+        console.error('AI safety validation failed:', error);
+        // Continue without validation if AI service is down
+      }
+    }
+
     const message = this.messageRepo.create({
       conversationId,
       senderId,
       content,
+      fileUrl: file?.url,
+      fileName: file?.name,
+      isAIValidated: safetyResult?.validated || false,
+      safetyScore: safetyResult?.safetyScore,
     });
 
     const savedMessage = await this.messageRepo.save(message);
 
-    // Update search_vector for full-text search
-    await this.messageRepo.query(
-      `
-      UPDATE messages
-      SET search_vector = to_tsvector('english', content)
-      WHERE id = $1
-      `,
-      [savedMessage.id],
-    );
+    // Update search_vector for full-text search if content exists
+    if (content) {
+      await this.messageRepo.query(
+        `
+        UPDATE messages
+        SET search_vector = to_tsvector('english', content)
+        WHERE id = $1
+        `,
+        [savedMessage.id],
+      );
+    }
 
     // Create message receipts for all conversation members except sender
     const members = await this.memberRepo.find({
@@ -461,28 +485,13 @@ export class ChatService {
       file.mimetype,
     );
 
-    const message = await this.messageRepo.save({
+    // Use saveMessage to ensure consistent message creation with AI validation
+    const message = await this.saveMessage(
       conversationId,
       senderId,
-      fileUrl: uploaded.url,
-      fileName: file.originalname,
-    });
-
-    // Create message receipts for all conversation members except sender
-    const members = await this.memberRepo.find({
-      where: { conversationId },
-    });
-
-    const receipts = members
-      .filter((m) => m.userId !== senderId)
-      .map((m) => ({
-        messageId: message.id,
-        userId: m.userId,
-        isDelivered: false,
-        isRead: false,
-      }));
-
-    await this.receiptRepo.save(receipts);
+      '', // No content for file messages
+      { url: uploaded.url, name: file.originalname },
+    );
 
     return message;
   }
