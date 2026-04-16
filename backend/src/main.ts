@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './redis-adapter';
-import { UsersService } from './users/users.service';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,6 +10,10 @@ async function bootstrap() {
 
   app.useWebSocketAdapter(redisAdapter);
 
+  app.enableCors();
+
   await app.listen(3000);
+
+  app.useGlobalGuards(app.get(ThrottlerGuard));
 }
-bootstrap();
+void bootstrap();

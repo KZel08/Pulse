@@ -13,12 +13,15 @@ import { AiModule } from '../ai/ai.module';
 import { MessageReceipt } from './entities/message-receipt.entity';
 import { MessageReaction } from './entities/message-reaction.entity';
 import { PinnedMessage } from './entities/pinned-message.entity';
+import { Subscription } from '../notifications/entities/subscription.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     JwtModule,
     ConfigModule,
     AiModule,
+    NotificationsModule,
     TypeOrmModule.forFeature([
       Message,
       Conversation,
@@ -26,6 +29,7 @@ import { PinnedMessage } from './entities/pinned-message.entity';
       MessageReceipt,
       MessageReaction,
       PinnedMessage,
+      Subscription,
     ]),
   ],
   providers: [ChatGateway, ChatService, StorageService],

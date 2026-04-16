@@ -1,5 +1,6 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
@@ -14,6 +15,7 @@ export class AuthController {
     return this.authService.register(email, password, name);
   }
 
+  @Throttle({ limit: 5, ttl: 3600 })
   @Post('login')
   async login(
     @Body('email') email: string,

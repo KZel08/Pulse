@@ -7,13 +7,17 @@ import { ChatModule } from './chat/chat.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { AiModule } from './ai/ai.module';
 import { DocumentsModule } from './documents/documents.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60, limit: 100 }],
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,
@@ -34,6 +38,8 @@ import { DocumentsModule } from './documents/documents.module';
     AiModule,
 
     DocumentsModule,
+
+    NotificationsModule,
   ],
 })
 export class AppModule {}

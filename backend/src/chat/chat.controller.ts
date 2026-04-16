@@ -18,6 +18,7 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { StorageService } from '../storage/storage.service';
 import { AiService } from '../ai/ai.service';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('chat')
 export class ChatController {

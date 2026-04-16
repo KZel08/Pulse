@@ -11,6 +11,8 @@ import { AiService } from '../ai/ai.service';
 import { MessageReceipt } from './entities/message-receipt.entity';
 import { MessageReaction } from './entities/message-reaction.entity';
 import { PinnedMessage } from './entities/pinned-message.entity';
+import { Subscription } from '../notifications/entities/subscription.entity';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ChatService {
@@ -27,8 +29,11 @@ export class ChatService {
     private readonly reactionRepo: Repository<MessageReaction>,
     @InjectRepository(PinnedMessage)
     private readonly pinnedRepo: Repository<PinnedMessage>,
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepo: Repository<Subscription>,
     private readonly storageService: StorageService,
     private readonly aiService: AiService,
+    private readonly notificationService: NotificationService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
   ) {}
@@ -132,6 +137,23 @@ export class ChatService {
       }));
 
     await this.receiptRepo.save(receipts);
+
+    // Send notifications to offline recipients
+    const recipients = members.filter((m) => m.userId !== senderId);
+    for (const recipient of recipients) {
+      const recipientId = recipient.userId;
+      if (!this.chatGateway.isUserOnline(recipientId)) {
+        const subs = await this.subscriptionRepo.find({
+          where: { userId: recipientId },
+        });
+        for (const sub of subs) {
+          await this.notificationService.sendNotification(sub.subscription, {
+            title: 'New Message',
+            body: savedMessage.content,
+          });
+        }
+      }
+    }
 
     return savedMessage;
   }

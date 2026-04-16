@@ -14,6 +14,7 @@ import { Inject, forwardRef } from '@nestjs/common';
 import { ChatService } from './chat.service';
 
 const onlineUsers = new Map<string, number>();
+const messageRate = new Map<string, number[]>();
 
 @WebSocketGateway({
   cors: {
@@ -102,6 +103,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     payload: { conversationId: string; content: string },
     @ConnectedSocket() client: Socket,
   ) {
+    const now = Date.now();
+    const userId = client.data.user.id;
+
+    const timestamps = messageRate.get(userId) || [];
+
+    // keep last 10 seconds
+    const recent = timestamps.filter((t) => now - t < 10000);
+
+    if (recent.length > 20) {
+      return client.emit('error', 'Rate limit exceeded');
+    }
+
+    recent.push(now);
+    messageRate.set(userId, recent);
+
     const sender = client.data.user;
 
     // Ensure the sender joins the conversation room
@@ -292,7 +308,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(payload.conversationId).emit('message_unpinned', payload);
   }
 
-  private isUserOnline(userId: string): boolean {
-    return onlineUsers.has(userId);
+  isUserOnline(userId: string): boolean {
+    return (onlineUsers.get(userId) || 0) > 0;
   }
 }
